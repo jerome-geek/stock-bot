@@ -1,0 +1,28 @@
+name: Daily Stock Analysis
+
+on:
+    schedule:
+        # 매일 평일(월-금) UTC 21:00 (한국 시간 오전 6:00, 미장 마감 후)
+        - cron: '0 21 * * 1-5'
+    workflow_dispatch: # 수동 실행 가능
+
+jobs:
+    analyze:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Install uv
+              run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+            - name: Setup Python
+              run: uv python install
+
+            - name: Install dependencies
+              run: uv sync
+
+            - name: Run Analysis
+              env:
+                  GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+              run: uv run main.py
