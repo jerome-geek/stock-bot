@@ -1,7 +1,17 @@
 # config/settings.py
 
-# 분석 대상 3배 레버리지 ETF 종목
-TICKERS = ["SOXL", "TQQQ", "FNGU", "BULZ"]
+# 분석 대상 종목
+TICKERS = ["SOXL", "TQQQ", "FNGU", "BULZ", "TSLA", "TSLL"]
+
+# 티커별 한글 종목명
+TICKER_NAMES = {
+    "SOXL": "반도체 3배",
+    "TQQQ": "나스닥100 3배",
+    "FNGU": "FANG+ 3배",
+    "BULZ": "빅테크 3배",
+    "TSLA": "테슬라",
+    "TSLL": "테슬라 2배",
+}
 
 # 분석 설정
 # 제도권주식분석 채널 전략: 1년(252 영업일) 기준 표준편차

@@ -3,6 +3,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 from datetime import datetime
+from config import settings
 
 class SheetsManager:
     def __init__(self, credentials_info, spreadsheet_name):
@@ -42,19 +43,35 @@ class SheetsManager:
             return None, None
 
     def update_ticker_sheet(self, ticker: str, df: pd.DataFrame, summary: dict):
-        """이미지 레이아웃 최적화 (B2, B3 날짜 기록 포함)"""
+        """종목 시트 업데이트"""
         try:
             worksheet = self.spreadsheet.worksheet(ticker)
+            worksheet.clear()  # 기존 데이터 초기화
         except gspread.WorksheetNotFound:
             worksheet = self.spreadsheet.add_worksheet(title=ticker, rows="2000", cols="20")
 
-        # 1. 상단 요약 정보 (이미지 100% 재현)
+        # 1. 상단 요약 정보
+        ticker_name = settings.TICKER_NAMES.get(ticker, ticker)
+        ticker_display = f"{ticker} / {ticker_name}"
+        
+        # 매수가 계산: 현재가 × (1 + 시그마%)
+        current_price = summary['current_price']
+        buy_price_1 = current_price * (1 + summary['s1'])
+        buy_price_2 = current_price * (1 + summary['s2'])
+        buy_price_3 = current_price * (1 + summary['s3'])
+        
         summary_data = [
-            ["종목", ticker, "", "현재가", round(summary['current_price'], 2), "", "총 평가금액", round(summary['total_val'], 2), "", "매수횟수", summary['buy_count'], "", "종가 +", ""],
-            ["시작날짜", summary['start_date'], "", "총 수량", summary['total_qty'], "", "총 수익금액", round(summary['total_profit'], 2), "", "최대 상승폭", f"{round(summary['max_gain']*100, 2)}%", "", "종가 -", ""],
-            ["종료날짜", summary['end_date'], "", "총 매수금액", round(summary['total_invest'], 2), "", "총 평가수익률", f"{round(summary['roi']*100, 2)}%", "", "최대 하락폭", f"{round(summary['max_loss']*100, 2)}%", "", "1표준편차", f"{round(summary['s1']*100, 2)}%"],
-            ["매수조건", f"{round(summary['s1']*100, 2)}%", "", "수익률 평균", f"{round(df['Return'].mean()*100, 3)}%", "", "표준편차", f"{round(summary['volatility']*100, 2)}%", "", "", "", "", "2표준편차", f"{round(summary['s2']*100, 2)}%"],
-            ["매수수량", 100, "", "", "", "", "", "", "", "", "", "", "3표준편차", f"{round(summary['s3']*100, 2)}%"],
+            ["종목", ticker_display, "", "현재가", round(current_price, 2), "", "총 평가금액", round(summary['total_val'], 2)],
+            ["시작날짜", summary['start_date'], "", "총 수량", summary['total_qty'], "", "총 수익금액", round(summary['total_profit'], 2)],
+            ["종료날짜", summary['end_date'], "", "총 매수금액", round(summary['total_invest'], 2), "", "총 평가수익률", f"{round(summary['roi']*100, 2)}%"],
+            ["", "", "", "수익률 평균", f"{round(df['Return'].mean()*100, 3)}%", "", "표준편차", f"{round(summary['volatility']*100, 2)}%"],
+            [],  # 빈 줄
+            ["매수조건", "", "", "매수가", "", "", "매수횟수", summary['buy_count']],
+            ["1σ 매수", f"{round(summary['s1']*100, 2)}%", "", "", round(buy_price_1, 2), "", "최대 상승폭", f"{round(summary['max_gain']*100, 2)}%"],
+            ["2σ 매수", f"{round(summary['s2']*100, 2)}%", "", "", round(buy_price_2, 2), "", "최대 하락폭", f"{round(summary['max_loss']*100, 2)}%"],
+            ["3σ 매수", f"{round(summary['s3']*100, 2)}%", "", "", round(buy_price_3, 2), "", "", ""],
+            ["매수수량", 100, "", "", "", "", "", ""],
+            [],  # 빈 줄
         ]
         
         # 기존 데이터 유지하며 업데이트 (날짜 입력 테스트를 위해 A1:N5만 업데이트)
@@ -74,12 +91,12 @@ class SheetsManager:
                 round(row['Buy_Amount'], 2) if row['Buy_Amount'] > 0 else ""
             ])
         
-        worksheet.update("A7", [table_header] + rows)
+        worksheet.update("A12", [table_header] + rows)
         
         # 날짜 포맷 힌트 제공
         worksheet.update_note("B2", "YYYY-MM-DD 형식으로 입력 후 봇을 실행하세요.")
-        worksheet.format("A1:N5", {"textFormat": {"bold": True}, "horizontalAlignment": "CENTER"})
-        worksheet.format("A7:F7", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.8, "green": 0.8, "blue": 0.8}})
+        worksheet.format("A1:H11", {"textFormat": {"bold": True}, "horizontalAlignment": "CENTER"})
+        worksheet.format("A12:F12", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.8, "green": 0.8, "blue": 0.8}})
 
     def update_dashboard(self, summary_list):
         """메인 대시보드 요약 정보 업데이트"""
@@ -89,24 +106,38 @@ class SheetsManager:
             worksheet = self.spreadsheet.add_worksheet(title="Dashboard", rows="50", cols="15")
 
         header = [
-            "Ticker", "Current Price", "Z-Score", "Signal", 
-            "1차 매수가(-1σ)", "2차 매수가(-2σ)", "3차 매수가(-3σ)", 
-            "Last Updated"
+            "분석일", "종목", "현재가", "1σ 매수가", "2σ 매수가", "3σ 매수가", 
+            "Signal", "최종 업데이트"
         ]
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        today = datetime.now().strftime('%Y-%m-%d')
         
         rows = []
         for item in summary_list:
+            ticker = item['ticker']
+            ticker_name = settings.TICKER_NAMES.get(ticker, ticker)
+            ticker_display = f"{ticker} / {ticker_name}"
+            
+            # 매수가 계산: 현재가 × (1 + 시그마%)
+            current_price = item['current_price']
+            buy_price_1 = current_price * (1 + item['s1'])
+            buy_price_2 = current_price * (1 + item['s2'])
+            buy_price_3 = current_price * (1 + item['s3'])
+            
+            # Signal: 1σ 기준 (현재가가 1σ 매수가 이하면 매수)
+            signal = "매수" if current_price <= buy_price_1 else "관망"
+            
             rows.append([
-                item['ticker'],
-                round(item['current_price'], 2),
-                round(item['z_score'], 3) if not pd.isna(item['z_score']) else "N/A",
-                item['signal'],
-                round(item['target_1'], 2),
-                round(item['target_2'], 2),
-                round(item['target_3'], 2),
+                today,
+                ticker_display,
+                round(current_price, 2),
+                round(buy_price_1, 2),
+                round(buy_price_2, 2),
+                round(buy_price_3, 2),
+                signal,
                 now
             ])
         
         worksheet.clear()
         worksheet.update([header] + rows)
+        worksheet.format("A1:H1", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.9, "green": 0.9, "blue": 0.9}})

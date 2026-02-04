@@ -26,16 +26,15 @@ def main():
     # 2. 종목별 분석 수행
     for ticker in settings.TICKERS:
         try:
-            # 시트에서 날짜 읽기 시도
-            start_date_str, end_date_str = None, None
+            # 시트에서 시작 날짜만 읽기 (end_date는 항상 오늘)
+            start_date_str = None
             if sheets:
-                start_date_str, end_date_str = sheets.get_date_range(ticker)
+                start_date_str, _ = sheets.get_date_range(ticker)
             
             # 기본값 설정: 3년 전 ~ 오늘
             if not start_date_str:
                 start_date_str = (datetime.now() - timedelta(days=365*3)).strftime('%Y-%m-%d')
-            if not end_date_str:
-                end_date_str = datetime.now().strftime('%Y-%m-%d')
+            end_date_str = datetime.now().strftime('%Y-%m-%d')
 
             # 데이터 수집 (5년치 가져와서 필터링)
             df_full = DataFetcher.get_historical_data(ticker, period="5y")
@@ -105,6 +104,19 @@ def main():
     if sheets and summary_list:
         sheets.update_dashboard(summary_list)
         print("Dashboard updated successfully.")
+    
+    # 4. 텔레그램 알림 전송
+    if summary_list:
+        from src.telegram_notifier import get_telegram_notifier
+        telegram = get_telegram_notifier()
+        if telegram:
+            message = telegram.format_summary(summary_list)
+            if telegram.send_message(message):
+                print("Telegram notification sent.")
+            else:
+                print("Failed to send Telegram notification.")
+        else:
+            print("Telegram not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.")
     
     print("=== Stock Analysis Bot Done ===")
 
