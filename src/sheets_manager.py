@@ -130,7 +130,7 @@ class SheetsManager:
             rows.append([
                 today,
                 ticker_display,
-                round(current_price, 2),
+                f"{current_price:.2f}({item['daily_change']*100:+.2f}%)",
                 round(buy_price_1, 2),
                 round(buy_price_2, 2),
                 round(buy_price_3, 2),

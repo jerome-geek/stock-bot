@@ -88,6 +88,7 @@ def main():
                 'target_1': float(MarketAnalyzer.get_target_price(latest['SMA_Price'], latest['STD_Price'], settings.THRESHOLDS["LEVEL_1"])),
                 'target_2': float(MarketAnalyzer.get_target_price(latest['SMA_Price'], latest['STD_Price'], settings.THRESHOLDS["LEVEL_2"])),
                 'target_3': float(MarketAnalyzer.get_target_price(latest['SMA_Price'], latest['STD_Price'], settings.THRESHOLDS["LEVEL_3"])),
+                'daily_change': float(latest['Return']) if not pd.isna(latest['Return']) else 0.0,
             }
             summary_list.append(ticker_summary)
             

@@ -50,7 +50,7 @@ class TelegramNotifier:
             
             line = (
                 f"<b>{ticker}</b> ({ticker_name})\n"
-                f"  현재가: ${current_price:.2f}\n"
+                f"  현재가: ${current_price:.2f}({item['daily_change']*100:+.2f}%)\n"
                 f"  1σ: ${buy_price_1:.2f} | 2σ: ${buy_price_2:.2f} | 3σ: ${buy_price_3:.2f}\n"
                 f"  Signal: {signal}"
             )
