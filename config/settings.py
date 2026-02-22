@@ -1,7 +1,7 @@
 # config/settings.py
 
 # 분석 대상 종목
-TICKERS = ["SOXL", "TQQQ", "FNGU", "BULZ", "TSLA", "TSLL"]
+TICKERS = ["SOXL", "TQQQ", "FNGU", "BULZ", "TSLA", "TSLL", "KORU"]
 
 # 티커별 한글 종목명
 TICKER_NAMES = {
@@ -11,6 +11,7 @@ TICKER_NAMES = {
     "BULZ": "빅테크 3배",
     "TSLA": "테슬라",
     "TSLL": "테슬라 2배",
+    "KORU": "한국 3배",
 }
 
 # 분석 설정

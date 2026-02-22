@@ -5,14 +5,20 @@ from datetime import datetime, timedelta
 
 class DataFetcher:
     @staticmethod
-    def get_historical_data(ticker: str, period: str = "5y") -> pd.DataFrame:
+    def get_historical_data(ticker: str, start: str = None, end: str = None, period: str = "5y") -> pd.DataFrame:
         """
         주식의 과거 데이터를 가져옵니다. 
-        기본적으로 2년치를 가져와서 252일 이평선을 계산할 수 있도록 합니다.
+        start와 end가 제공되면 해당 기간의 데이터를, 아니면 period 기준 데이터를 가져옵니다.
         """
-        print(f"[{ticker}] 데이터 수집 중...")
         stock = yf.Ticker(ticker)
-        df = stock.history(period=period)
+        
+        if start and end:
+            df = stock.history(start=start, end=end)
+        elif start:
+            # start가 있고 end가 없으면 start부터 현재까지
+            df = stock.history(start=start)
+        else:
+            df = stock.history(period=period)
         
         if df.empty:
             print(f"Warning: {ticker} 데이터를 가져오지 못했습니다.")

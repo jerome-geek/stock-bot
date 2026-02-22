@@ -26,6 +26,14 @@ def main():
     # 2. 종목별 분석 수행
     for ticker in settings.TICKERS:
         try:
+            # 1. 기존 데이터 읽어오기
+            existing_df = None
+            if sheets:
+                existing_df = sheets.get_history(ticker)
+            
+            new_rows_count = 0
+            update_last_row = False
+
             # 시트에서 시작 날짜만 읽기 (end_date는 항상 오늘)
             start_date_str = None
             if sheets:
@@ -36,8 +44,36 @@ def main():
                 start_date_str = (datetime.now() - timedelta(days=365*3)).strftime('%Y-%m-%d')
             end_date_str = datetime.now().strftime('%Y-%m-%d')
 
-            # 데이터 수집 (5년치 가져와서 필터링)
-            df_full = DataFetcher.get_historical_data(ticker, period="5y")
+            if existing_df is not None and not existing_df.empty:
+                last_date = existing_df.index[-1].normalize()
+                start_fetch = last_date.strftime('%Y-%m-%d')
+                
+                new_df = DataFetcher.get_historical_data(ticker, start=start_fetch)
+                
+                if not new_df.empty:
+                    if new_df.index.tz is not None:
+                        new_df.index = new_df.index.tz_localize(None)
+                    new_df.index = new_df.index.normalize()
+                    
+                    new_rows = new_df[new_df.index > last_date]
+                    new_rows_count = len(new_rows)
+                    
+                    if len(new_df[new_df.index == last_date]) > 0:
+                        update_last_row = True
+                        
+                    combined_df = pd.concat([existing_df, new_df])
+                    combined_df = combined_df[~combined_df.index.duplicated(keep='last')].sort_index()
+                    df_full = combined_df
+                else:
+                    df_full = existing_df
+            else:
+                # 시트에 데이터가 없거나 첫 실행인 경우
+                df_full = DataFetcher.get_historical_data(ticker, period="5y")
+                if not df_full.empty:
+                    if df_full.index.tz is not None:
+                        df_full.index = df_full.index.tz_localize(None)
+                    df_full.index = df_full.index.normalize()
+            
             if df_full.empty:
                 continue
             
@@ -96,7 +132,7 @@ def main():
 
             if sheets:
                 clean_df = df.replace([float('inf'), float('-inf')], 0).fillna(0)
-                sheets.update_ticker_sheet(ticker, clean_df, ticker_summary)
+                sheets.update_ticker_sheet(ticker, clean_df, ticker_summary, new_rows_count=new_rows_count, update_last_row=update_last_row)
                 
         except Exception as e:
             print(f"Error processing {ticker}: {e}")
